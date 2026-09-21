@@ -35,7 +35,11 @@ as the producer starts publishing them.
 
 **1. What is EDA? What are its advantages and disadvantages?**
 
-TODO: write your answer here.
+Event-Driven Architecture (EDA) is a software design pattern where different parts of a system communicate by producing and reacting to events, instead of calling each other directly. A component that generates data (a producer) publishes an event, and any component that needs it (a consumer) subscribes and reacts on its own schedule. In this milestone, the smart meter script published random sensor readings as events, and a separate consumer script picked them up independently, without the two programs being directly connected.
+
+The main advantage of EDA is decoupling. Producers and consumers do not need to know about each other, so each part of the system can be built, deployed, and scaled independently. This makes the system easier to extend, since a new consumer can be added later without touching the producer's code.
+
+The main disadvantage is complexity. Because the flow of data is no longer a simple sequence of function calls, it becomes harder to trace what happens step by step, which makes debugging more difficult. There is also no guarantee of message order by default, something we observed directly while testing the CSV producer and consumer, so systems that depend on strict ordering need extra care.
 
 **2. Cloud Pub/Sub has two types of subscriptions: push and pull. Describe them, showing the strengths and weaknesses of each based on potential applications.**
 
