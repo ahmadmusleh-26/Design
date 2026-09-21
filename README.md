@@ -10,20 +10,22 @@
    GCP project ID.
 5. Install the required package:
 
-```
-pip install google-cloud-pubsub
-```
+   ```
+   pip install google-cloud-pubsub
+   ```
 
 ## How to run
 
 Open two terminals in this folder.
 
 Terminal 1:
+
 ```
 python csv_consumer.py
 ```
 
 Terminal 2:
+
 ```
 python csv_producer.py
 ```
@@ -33,23 +35,61 @@ as the producer starts publishing them.
 
 ## Discussion
 
-**1. What is EDA? What are its advantages and disadvantages?**
+### 1. What is EDA? What are its advantages and disadvantages?
 
-Event-Driven Architecture (EDA) is a software design pattern where different parts of a system communicate by producing and reacting to events, instead of calling each other directly. A component that generates data (a producer) publishes an event, and any component that needs it (a consumer) subscribes and reacts on its own schedule. In this milestone, the smart meter script published random sensor readings as events, and a separate consumer script picked them up independently, without the two programs being directly connected.
+Event-Driven Architecture (EDA) is a software design pattern where different
+parts of a system communicate by producing and reacting to events, instead of
+calling each other directly. A component that generates data (a producer)
+publishes an event, and any component that needs it (a consumer) subscribes
+and reacts on its own schedule. In this milestone, the smart meter script
+published random sensor readings as events, and a separate consumer script
+picked them up independently, without the two programs being directly
+connected.
 
-The main advantage of EDA is decoupling. Producers and consumers do not need to know about each other, so each part of the system can be built, deployed, and scaled independently. This makes the system easier to extend, since a new consumer can be added later without touching the producer's code.
+The main advantage of EDA is decoupling. Producers and consumers do not need
+to know about each other, so each part of the system can be built, deployed,
+and scaled independently. This makes the system easier to extend, since a new
+consumer can be added later without touching the producer's code.
 
-The main disadvantage is complexity. Because the flow of data is no longer a simple sequence of function calls, it becomes harder to trace what happens step by step, which makes debugging more difficult. There is also no guarantee of message order by default, something we observed directly while testing the CSV producer and consumer, so systems that depend on strict ordering need extra care.
+The main disadvantage is complexity. Because the flow of data is no longer a
+simple sequence of function calls, it becomes harder to trace what happens
+step by step, which makes debugging more difficult. There is also no
+guarantee of message order by default, something we observed directly while
+testing the CSV producer and consumer, so systems that depend on strict
+ordering need extra care.
 
-**2. Cloud Pub/Sub has two types of subscriptions: push and pull. Describe them, showing the strengths and weaknesses of each based on potential applications.**
+### 2. Push vs. pull subscriptions
 
-In a pull subscription, the consumer application connects to Pub/Sub and asks for messages whenever it is ready to process them. This is what we used in this milestone: the consumer script stays running and keeps requesting new messages as they arrive. The advantage is that the application controls the pace at which it receives messages. The disadvantage is that the application has to stay running at all times to receive messages without delay.
+In a pull subscription, the consumer application connects to Pub/Sub and asks
+for messages whenever it is ready to process them. This is what we used in
+this milestone: the consumer script stays running and keeps requesting new
+messages as they arrive. The advantage is that the application controls the
+pace at which it receives messages. The disadvantage is that the application
+has to stay running at all times to receive messages without delay.
 
-In a push subscription, Pub/Sub sends each message directly to a web address (an endpoint) chosen by the developer, instead of waiting for the application to ask for it. This means the application does not need to run constantly, which works well for serverless setups. The disadvantage is that the application needs a public web address that can reliably receive these messages, and it has less control over how fast messages arrive.
+In a push subscription, Pub/Sub sends each message directly to a web address
+(an endpoint) chosen by the developer, instead of waiting for the application
+to ask for it. This means the application does not need to run constantly,
+which works well for serverless setups. The disadvantage is that the
+application needs a public web address that can reliably receive these
+messages, and it has less control over how fast messages arrive.
 
-**3. When publishing a message into a topic, an ordering key can be specified. Using examples, describe the role and benefits of ordering keys.**
+### 3. Ordering keys
 
-TODO: write your answer here.
+Cloud Pub/Sub does not guarantee message order by default. This is confirmed
+by Google's own documentation. We saw this in our testing: the producer
+published CSV rows in order, but a few early messages arrived much later than
+expected.
+
+An ordering key can fix part of this problem. It is a string attached to each
+message. Messages with the same key are guaranteed to arrive in order.
+Messages with different keys are not guaranteed to arrive in any particular
+order relative to each other.
+
+For example, we could use the profileName field (denver, boston, losang) as
+the ordering key. This would keep each city's readings in order. But a denver
+message and a boston message could still arrive in any order, since they use
+different keys. This still allows fast, parallel processing overall.
 
 ## Design
 
@@ -62,6 +102,14 @@ the dictionary is serialized to JSON, and the message is published to the
 deserializes the JSON back into a dictionary using `json.loads()` and prints
 the values.
 
-TODO: add any additional notes on your own design decisions here, for example
-the missing value handling or the message ordering behavior observed while
-testing.
+A couple of design notes from building and testing this:
+
+- The CSV data has several missing values (for example, some rows have no
+  humidity or pressure reading). These are converted from empty strings to
+  `None` before publishing, so they come through as `null` in JSON instead of
+  an ambiguous empty string.
+- While testing, message order was not always preserved. A few of the
+  earliest published rows arrived after most of the later rows had already
+  been consumed. This matches the ordering behavior discussed in question 3
+  above, and confirms that ordering keys would be needed if this data
+  depended on strict delivery order.
