@@ -43,7 +43,9 @@ The main disadvantage is complexity. Because the flow of data is no longer a sim
 
 **2. Cloud Pub/Sub has two types of subscriptions: push and pull. Describe them, showing the strengths and weaknesses of each based on potential applications.**
 
-TODO: write your answer here.
+In a pull subscription, the consumer application connects to Pub/Sub and asks for messages whenever it is ready to process them. This is what we used in this milestone: the consumer script stays running and keeps requesting new messages as they arrive. The advantage is that the application controls the pace at which it receives messages. The disadvantage is that the application has to stay running at all times to receive messages without delay.
+
+In a push subscription, Pub/Sub sends each message directly to a web address (an endpoint) chosen by the developer, instead of waiting for the application to ask for it. This means the application does not need to run constantly, which works well for serverless setups. The disadvantage is that the application needs a public web address that can reliably receive these messages, and it has less control over how fast messages arrive.
 
 **3. When publishing a message into a topic, an ordering key can be specified. Using examples, describe the role and benefits of ordering keys.**
 
