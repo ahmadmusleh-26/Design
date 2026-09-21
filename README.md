@@ -86,6 +86,12 @@ message. Messages with the same key are guaranteed to arrive in order.
 Messages with different keys are not guaranteed to arrive in any particular
 order relative to each other.
 
+The benefit of ordering keys is that they give ordering only where it is
+actually needed. Related messages stay in order, but unrelated messages can
+still be delivered and processed at the same time, in parallel. This means we
+do not have to give up speed just to get ordering for the messages that need
+it.
+
 For example, we could use the profileName field (denver, boston, losang) as
 the ordering key. This would keep each city's readings in order. But a denver
 message and a boston message could still arrive in any order, since they use
@@ -93,10 +99,16 @@ different keys. This still allows fast, parallel processing overall.
 
 ## Design
 
-`csv_producer.py` reads `Labels.csv` row by row. Each row is converted into a
-dictionary using `csv.DictReader`, missing values are replaced with `None`,
-the dictionary is serialized to JSON, and the message is published to the
-`Design` topic.
+`csv_producer.py` opens `Labels.csv` and reads it row by row using
+`csv.DictReader`, which turns each row into a dictionary keyed by the CSV
+header (time, profileName, temperature, humidity, pressure). Any missing
+value in a row (an empty string in the CSV) is replaced with `None`, so it
+becomes a proper `null` once serialized, instead of an empty string that
+would be hard to distinguish from real data. Each dictionary is then
+serialized with `json.dumps()` and encoded to bytes, since Pub/Sub requires
+messages to be sent as bytes. The script publishes the message to the
+`Design` topic and waits for `future.result()` before moving to the next row,
+to confirm the message was actually published successfully.
 
 `csv_consumer.py` subscribes to `Design-sub`. For each message it receives, it
 deserializes the JSON back into a dictionary using `json.loads()` and prints
