@@ -33,6 +33,40 @@ python csv_producer.py
 The consumer needs to be running first so it can pick up the messages as soon
 as the producer starts publishing them.
 
+## Design
+
+`csv_producer.py` opens `Labels.csv` and reads it row by row using
+`csv.DictReader`, which turns each row into a dictionary keyed by the CSV
+header (time, profileName, temperature, humidity, pressure). Any missing
+value in a row (an empty string in the CSV) is replaced with `None`, so it
+becomes a proper `null` once serialized, instead of an empty string that
+would be hard to distinguish from real data. Each dictionary is then
+serialized with `json.dumps()` and encoded to bytes, since Pub/Sub requires
+messages to be sent as bytes. The script publishes the message to the
+`Design` topic and waits for `future.result()` before moving to the next row,
+to confirm the message was actually published successfully.
+
+`csv_consumer.py` connects to the `Design-sub` subscription and registers a
+callback function that Pub/Sub calls automatically whenever a new message
+arrives, instead of the script having to check for messages in a loop. Inside
+the callback, the raw message bytes are decoded and passed to `json.loads()`,
+which turns the JSON text back into a Python dictionary. Each field of the
+record (time, profileName, temperature, humidity, pressure) is then printed.
+After processing a message, the script calls `message.ack()` to tell Pub/Sub
+the message was received successfully, so it is not redelivered.
+
+A couple of design notes from building and testing this:
+
+- The CSV data has several missing values (for example, some rows have no
+  humidity or pressure reading). These are converted from empty strings to
+  `None` before publishing, so they come through as `null` in JSON instead of
+  an ambiguous empty string.
+- While testing, message order was not always preserved. A few of the
+  earliest published rows arrived after most of the later rows had already
+  been consumed. This matches the ordering behavior discussed in question 3
+  below, and confirms that ordering keys would be needed if this data
+  depended on strict delivery order.
+
 ## Discussion
 
 ### 1. What is EDA? What are its advantages and disadvantages?
@@ -96,32 +130,3 @@ For example, we could use the profileName field (denver, boston, losang) as
 the ordering key. This would keep each city's readings in order. But a denver
 message and a boston message could still arrive in any order, since they use
 different keys. This still allows fast, parallel processing overall.
-
-## Design
-
-`csv_producer.py` opens `Labels.csv` and reads it row by row using
-`csv.DictReader`, which turns each row into a dictionary keyed by the CSV
-header (time, profileName, temperature, humidity, pressure). Any missing
-value in a row (an empty string in the CSV) is replaced with `None`, so it
-becomes a proper `null` once serialized, instead of an empty string that
-would be hard to distinguish from real data. Each dictionary is then
-serialized with `json.dumps()` and encoded to bytes, since Pub/Sub requires
-messages to be sent as bytes. The script publishes the message to the
-`Design` topic and waits for `future.result()` before moving to the next row,
-to confirm the message was actually published successfully.
-
-`csv_consumer.py` subscribes to `Design-sub`. For each message it receives, it
-deserializes the JSON back into a dictionary using `json.loads()` and prints
-the values.
-
-A couple of design notes from building and testing this:
-
-- The CSV data has several missing values (for example, some rows have no
-  humidity or pressure reading). These are converted from empty strings to
-  `None` before publishing, so they come through as `null` in JSON instead of
-  an ambiguous empty string.
-- While testing, message order was not always preserved. A few of the
-  earliest published rows arrived after most of the later rows had already
-  been consumed. This matches the ordering behavior discussed in question 3
-  above, and confirms that ordering keys would be needed if this data
-  depended on strict delivery order.
